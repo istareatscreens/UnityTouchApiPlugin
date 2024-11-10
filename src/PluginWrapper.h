@@ -17,7 +17,7 @@
 #include "UnityTouchPanelApiPlugin.h"
 
 // Declare callback
-typedef int(__stdcall *DataReceivedCallback)(const int *);
+typedef int(__stdcall *DataReceivedCallback)(const uint16_t *);
 typedef int(__stdcall *EventCallback)(std::string);
 
 typedef std::unique_ptr<UnityTouchPanelApiPlugin> PluginPtr;

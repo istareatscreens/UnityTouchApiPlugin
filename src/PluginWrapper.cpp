@@ -94,7 +94,7 @@ extern "C"
         }
 
         obj->read(
-            [data_received](const int *data)
+            [data_received](uint16_t *data)
             { data_received(data); },
             [event_callback](std::string error)
             { event_callback(error); });

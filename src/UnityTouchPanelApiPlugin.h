@@ -19,16 +19,17 @@
 class DLL_EXPORT UnityTouchPanelApiPlugin
 {
 private:
-    static constexpr int MAX_TOUCH_POINTS = 10;
-    static constexpr int DATA_POINTS = 3;
+    static constexpr size_t MAX_TOUCH_POINTS = 10;
+    static constexpr size_t DATA_POINTS = 3;
     std::atomic<bool> reading; // Controls the read loop
     std::thread readThread;
-    std::unique_ptr<int[]> buffer;
+    std::unique_ptr<uint16_t[]> buffer;
+    std::unique_ptr<uint16_t[]> externalBuffer;
     std::mutex connectionMutex;
     const ConnectionProperties connectionProperties;
     const HWND unityWindow; // Window handle for touch input
-
-    void readLoop(const std::function<void(const int *)> dataCallback,
+    void clearBuffers();
+    void readLoop(const std::function<void(uint16_t *)> dataCallback,
                   const std::function<void(std::string)> errorCallback);
 
 public:
@@ -42,12 +43,13 @@ public:
 
           }
     {
-        buffer = std::make_unique<int[]>(MAX_TOUCH_POINTS * MAX_TOUCH_COUNT);
+        buffer = std::make_unique<uint16_t[]>(MAX_TOUCH_POINTS * DATA_POINTS);
+        externalBuffer = std::make_unique<uint16_t[]>(MAX_TOUCH_POINTS * DATA_POINTS);
     }
     ~UnityTouchPanelApiPlugin();
 
     bool connect();
-    void read(const std::function<void(const int *)> dataCallback,
+    void read(const std::function<void(uint16_t *)> dataCallback,
               const std::function<void(std::string)> errorCallback);
     bool disconnect();
     bool isConnected() const;

@@ -4,27 +4,30 @@
 
 bool UnityTouchPanelApiPlugin::connect()
 {
+    clearBuffers();
     return isConnected();
 }
 
-void UnityTouchPanelApiPlugin::read(const std::function<void(const int *)> dataCallback,
+void UnityTouchPanelApiPlugin::read(const std::function<void(uint16_t *)> dataCallback,
                                     const std::function<void(std::string)> errorCallback)
 {
     stopReading();
     reading.store(true);
+    clearBuffers();
 
     readThread = std::thread(
         [this, dataCallback, errorCallback]()
         { readLoop(dataCallback, errorCallback); });
 }
 
-void UnityTouchPanelApiPlugin::readLoop(const std::function<void(const int *)> dataCallback,
+void UnityTouchPanelApiPlugin::readLoop(const std::function<void(uint16_t *)> dataCallback,
                                         const std::function<void(std::string)> errorCallback)
 {
     try
     {
         MSG msg;
-        int touchDataBuffer[MAX_TOUCH_POINTS * DATA_POINTS];
+        uint16_t *raw_buffer = buffer.get();
+        uint16_t *external_buffer = externalBuffer.get();
         int pollingRateMs = connectionProperties.polling_rate_ms;
 
         while (reading.load(std::memory_order_relaxed))
@@ -46,13 +49,16 @@ void UnityTouchPanelApiPlugin::readLoop(const std::function<void(const int *)> d
                 continue;
             }
 
-            for (int i = 0; i < touchCount; i++)
+            for (size_t i = 0; i < touchCount; i++)
             {
-                buffer[i * DATA_POINTS + 0] = touchInputs[i].x;
-                buffer[i * DATA_POINTS + 1] = touchInputs[i].y;
-                buffer[i * DATA_POINTS + 2] = touchInputs[i].dwFlags;
+                raw_buffer[i * DATA_POINTS + 0] = static_cast<uint16_t>(touchInputs[i].x);
+                raw_buffer[i * DATA_POINTS + 1] = static_cast<uint16_t>(touchInputs[i].y);
+                raw_buffer[i * DATA_POINTS + 2] = static_cast<uint16_t>(touchInputs[i].dwFlags);
             }
-            dataCallback(touchDataBuffer);
+
+            std::memcpy(external_buffer, raw_buffer, MAX_TOUCH_POINTS * DATA_POINTS * sizeof(uint16_t));
+
+            dataCallback(external_buffer);
             CloseTouchInputHandle(hTouchInput);
         }
 
@@ -65,6 +71,11 @@ void UnityTouchPanelApiPlugin::readLoop(const std::function<void(const int *)> d
     }
 }
 
+void UnityTouchPanelApiPlugin::clearBuffers()
+{
+    buffer.reset(new uint16_t[MAX_TOUCH_POINTS * DATA_POINTS]);
+    externalBuffer.reset(new uint16_t[MAX_TOUCH_POINTS * DATA_POINTS]);
+}
 bool UnityTouchPanelApiPlugin::disconnect()
 {
     stopReading();
